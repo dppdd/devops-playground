@@ -3,6 +3,7 @@
 echo "* Add hosts ..."
 echo "192.168.99.101 docker1.home1.lab docker1" >> /etc/hosts
 echo "192.168.99.102 docker2.home1.lab docker2" >> /etc/hosts
+echo "192.168.99.103 docker3.home1.lab docker3" >> /etc/hosts
 
 echo "* Install Additional Packages ..."
 dnf install -y jq tree git nano
