@@ -1,0 +1,105 @@
+pipeline 
+{
+    agent 
+    {
+        label 'docker-node'
+    }
+    environment 
+    {
+        DOCKERHUB_CREDENTIALS=credentials('docker-hub')
+    }
+    stages 
+    {
+        stage('Clone') 
+        {
+            steps 
+            {
+                git 'http://170.187.185.37:3000/demiro/bgapp'
+            }
+        }
+        stage('Copy web files to project dir') 
+        {
+            steps 
+            {
+                sh '''
+                if [ ! -d /projects ]; then
+                    sudo mkdir /projects
+                    sudo chown jenkins: /projects
+                    cp -ar ./web /projects
+                else
+                    cp -ar ./web /projects
+                fi
+                '''
+            }
+        }
+        stage('Build and run on port 8080')
+        {
+            steps
+            {
+                sh '''
+                docker composer down || true
+                docker compose up -d 
+                '''
+            }
+        }
+        stage('Testing the application for reachability')
+        {
+            steps
+            {
+                sh '''
+                sleep 10
+                test_var=$(curl -s http://170.187.185.37:8080/  | grep София | wc -l)
+                if [[ $test_var == "2" ]]; then
+                    echo "The application works as intended"
+                else
+                    echo "---- An issue has been detected. Check the prev logs, docker host instance and debug -----"
+                fi
+                '''
+            }
+        }
+        stage('Login Docker Hub') 
+        {
+            steps 
+            {
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+            }
+        }
+        stage('Push images to docker hub') 
+        {
+            steps 
+            {
+                sh 'docker image tag pipeline-bgapp-db demiro/bgapp-db'
+                sh 'docker push demiro/bgapp-db'
+
+                sh 'docker image tag pipeline-bgapp-web demiro/bgapp-web'
+                sh 'docker push demiro/bgapp-web'
+            }
+        }
+        stage('Stopping the application and removing the containers')
+        {
+            steps
+            {
+                sh '''
+                docker compose down --rmi local
+                '''
+            }
+        }
+        stage('Starting the app on port 80')
+        {
+            steps
+            {
+                sh '''
+                cd production-containers
+                docker compose up -d
+                '''
+            }
+        }
+        stage('Clean')
+        {
+            steps
+            {
+                cleanWs()
+            }
+        }
+    }
+}

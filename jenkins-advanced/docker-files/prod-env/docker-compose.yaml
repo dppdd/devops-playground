@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+    web:
+        image: demiro/bgapp-web:latest
+        ports:
+            - 80:80
+        volumes:
+            - "/projects/web:/var/www/html:ro"
+        networks:
+            - app-network-production
+        depends_on:
+            - db
+    db:
+        image: demiro/bgapp-db:latest
+        networks:
+            - app-network-production
+        environment:
+            MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+networks:
+    app-network-production:
+
