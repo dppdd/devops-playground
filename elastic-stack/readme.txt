@@ -6,7 +6,7 @@ Infrastructure:
 hostname: master
 os: centos
 IP: $
-Init_script: ./client-centos-init.sh
+Init_script: ./master-centos-init.sh
 
 hostname: client1:
 os: centos
