@@ -1,4 +1,4 @@
---- Linode setup. ---
+--- Cloud setup, e.g. Linode ---
 
 *** Create two instances. Name them jenkins-host and docker-host
 *** Run the following 
@@ -9,15 +9,11 @@
 - docker-host
 ./docker-centos-9.init.sh # requires docker-compose.yml for Gitea
 
-*** Manual steps on jenkins-host:
-(could be automated)
-
+*** Manual steps on jenkins-host, not required, could be included in the init scripts:
 ssh-keygen -t ecdsa -b 521 -m PEM
-ssh-copy-id -p 9292 jenkins@170.187.185.133 # copy to jenkins machine
-ssh-copy-id -p 9292 jenkins@170.187.185.37 # copy to docker machine
-proof:
-[jenkins@170-187-185-133 ~]$ ssh -p '9292' 'jenkins@170.187.185.37'
-[jenkins@170-187-185-37 ~]$ exit
+ssh-copy-id -p 9292 jenkins@$IP_JENKINS # copy to jenkins machine
+ssh-copy-id -p 9292 jenkins@$IP_DOCKER # copy to docker machine
+
 
 *** Jenkins UI post-configuration:
 
@@ -27,8 +23,8 @@ proof:
 2. Manage Jenkins > Manage Plugins > Available
 - SSH install and restart
 3. Manage Jenkins > Configure System > SSH remote hosts / SSH sites > Add
-- hostname: 170.187.185.133, Port: 9292, Credentials: "Credentials from file" (jenkins machine)
-- hostname: 170.187.185.37, Port: 9292, Credentials: "Credentials from file"  (docker machine)
+- hostname: $IP_JENKINS, Port: 9292, Credentials: "Credentials from file" (jenkins machine)
+- hostname: $$IP_DOCKER, Port: 9292, Credentials: "Credentials from file"  (docker machine)
 4. Manage Jenkins > Manage Nodes and Clouds > New Node
 - Node name: docker-node, Permanent Agent, save:
 - Number of executors: 4, Remote root: /home/jenkins, Labels: docker-node
@@ -40,7 +36,7 @@ Part I: Set up Gitea repo and make Jenkins pipeline
 
 Gitea steps:
 + > New Repository > Migrate repository > GIT 
-Clone from: https://github.com/shekeriev/bgapp
+Clone from: https://github.com/shekeriev/bgapp # we use this nice sample php app
 Repo name: bgapp
 - on my local machine:
 git clone http://170.187.185.37:3000/demiro/bgapp
@@ -58,7 +54,7 @@ commit and push
 
 
 Jenkins: Build pipeline
-- GitHub project: http://170.187.185.37:3000/demiro/bgapp/
+- GitHub project: http://$IP_DOCKER:3000/demiro/bgapp/
 - Pipeline script from SCM : GIT : Jenkinsfile
 
 Part II: Set up Gitea Webhook
@@ -71,16 +67,15 @@ Jenkins:
 
 Gitea:
 1. Select Repo > Settings > webhooks > add > 
-http://170.187.185.133:8080/gitea-webhook/post
+http://$IP_JENKINS:8080/gitea-webhook/post
 > Test Delivery
 > Test II: Change in git, commit and push
 
 
 Complete the Jenkins pipeline steps with:
 (content in Jenkinsfile)
-- Testing the application for reachability and that (after a short wait).
+- Testing the application for reachability.
 - Publishing the images to Docker Hub
-https://hub.docker.com/repositories
 - Stopping the application and removing the containers
 - Using another Docker Compose file to
  - Create a common network

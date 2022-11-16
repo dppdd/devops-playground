@@ -2,10 +2,15 @@
 ### Initial script for configuring:
 #   CentOS 9 Stream instance
 #   Jenkins
-# author: demiro
-# SSH the instance and execute this script. No params expected.
 
-echo "#### Part I: SSH Configuration ####"
+echo_() {
+    terminalColorWarning='\033[1;34m'
+    terminalColorClear='\033[0m'
+    echo -e "${terminalColorWarning}$1${terminalColorClear}"
+    echo
+}
+
+echo_ " ----- SSH ----- "
 
 # Replace port 22 with 9292
 echo "Port 9292" >> /etc/ssh/sshd_config
@@ -26,9 +31,8 @@ semanage port -m -t ssh_port_t -p tcp 9292
 # Restart SSHD
 systemctl restart sshd
 
-echo "#### Part I: SSH Configuration Completed ####"
 
-echo "Part II: Install Java and Jenkins"
+echo_ "Install Java and Jenkins"
 
 sudo yum install wget -y
 # Jenkins
@@ -38,37 +42,37 @@ sudo dnf makecache
 sudo dnf install jenkins -y
 # Java
 sudo dnf install java-17-openjdk -y
-# Firewall
-echo "* Firewall - open port 8080 ..."
+
+echo_ "Firewall setup"
 firewall-cmd --add-port=8080/tcp --permanent
 firewall-cmd --reload
-echo "* Start Jenkins ..."
+
+echo_ "Start Jenkins"
 sudo systemctl start jenkins
 sudo systemctl enable jenkins
-# Setup jenkins user
+
+echo_ "Setup Jenkins user"
 sudo usermod -s /bin/bash jenkins
 echo 'Password1' | passwd --stdin jenkins
 echo "jenkins ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# Restart jenkins
+echo_ "Restart Jenkins"
 sudo systemctl restart jenkins
 
-echo "* Install Additional packages"
+echo_ "Additional software"
 dnf install -y jq tree git nano
 
-echo "* Part II Completed"
 
+echo_ " ----- Instructions Read Here ----- "
 
-echo "***** Further Instructions *****"
-
-echo "Save the following private key to your local machine"
-echo "Printing ~/.ssh/ssh_key_master ..."
+echo_ "Printing ~/.ssh/ssh_key_docker_root ..."
 cat ~/.ssh/ssh_key_jenkins_root
+echo
 
-echo
-echo "Then test the connection with:"
+echo_ "Then test the connection with:"
 my_ip=$(hostname -I | cut -d ' ' -f 1)
-echo "ssh -i ssh_key_jenkins_root root@${my_ip} -p9292"
-echo
-echo "Complete the Jenkins installation at ${my_ip}:8080"
-echo "copy the key in /var/lib/jenkins/secrets/initialAdminPassword"
+
+echo_ "ssh -i ssh_key_jenkins_root root@${my_ip} -p9292"
+
+echo_ "Complete the Jenkins installation at ${my_ip}:8080"
+echo_ "Secret in /var/lib/jenkins/secrets/initialAdminPassword"
