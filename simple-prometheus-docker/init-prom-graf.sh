@@ -1,24 +1,27 @@
-echoMsg() {
+#!/bin/bash
+
+# We assume that the env is ready with docker.
+# We run Prometheus as Docker, and docker exports metrics to Prometheus
+
+
+echo_() {
     terminalColorWarning='\033[1;34m'
     terminalColorClear='\033[0m'
     echo -e "${terminalColorWarning}$1${terminalColorClear}"
 }
 
-echoMsg " ----- Configure and Run Prometheus -----"
+echo_ " ----- Mod Firewall -----"
 
-# Set PORTS here:
 firewall-cmd --add-port=9090/tcp --permanent
 firewall-cmd --add-port=9323/tcp --permanent
 firewall-cmd --add-port=8081/tcp --permanent
 firewall-cmd --add-port=8082/tcp --permanent
 firewall-cmd --reload
 
-# We want to run Prometheus as Docker, and
-# we also like docker to export metrics to Prometheus, so:
 
-# Configure Docker's metrics:
+echo_ " ----- Configure Docker's metrics -----"
+
 my_ip=$(hostname -I | cut -d ' ' -f 1)
-
 cat << EOF > /etc/docker/daemon.json
 {
   "metrics-addr" : "${my_ip}:9323",
@@ -26,10 +29,10 @@ cat << EOF > /etc/docker/daemon.json
 }
 EOF
 
-# Docker restart required
+echo_ " ----- Docker restart -----"
 systemctl restart docker
 
-# 
+echo_ " ----- Define Docker's metrics -----"
 mkdir -p /etc/prometheus
 touch /etc/prometheus/prometheus.yml
 
@@ -77,32 +80,12 @@ scrape_configs:
       - targets: ['${my_ip}:9323']
 EOF
 
+echo_ " ----- Start Swarm Cluster -----"
 docker swarm init
+docker service create --replicas 1 --name my-prometheus --mount type=bind,source=/etc/prometheus/prometheus.yml,destination=/etc/prometheus/prometheus.yml     --publish published=9090,target=9090,protocol=tcp     prom/prometheus
 
-docker service create --replicas 1 --name my-prometheus     --mount type=bind,source=/etc/prometheus/prometheus.yml,destination=/etc/prometheus/prometheus.yml     --publish published=9090,target=9090,protocol=tcp     prom/prometheus
-
-
-echoMsg " ----- Start Test Apps -----"
-
-
-# docker service create --replicas 1 --name worker1 -p 8081:8080 shekeriev/goprom
-# docker service create --replicas 1 --name worker2 -p 8082:8080 shekeriev/goprom
-
-
-docker container run -d --name worker1 -p 8081:8080 shekeriev/goprom
-docker container run -d --name worker2 -p 8082:8080 shekeriev/goprom
-
-# docker service create \
-#   --replicas 10 \
-#   --name ping_service \
-#   alpine ping "${my_ip}:8081"
-
-
-echoMsg " ----- Install Grafana -----"
+echo_ " ----- Install Grafana -----"
 
 docker volume create grafana
-
 docker run -d -p 3000:3000 --name grafana --rm -v grafana:/var/lib/grafana grafana/grafana-oss
-
-echoMsg " ----- Setup completed. -----"
 
