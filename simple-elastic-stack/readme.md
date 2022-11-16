@@ -2,6 +2,7 @@ This is a simple test creating Elasticsearch stack on three nodes, without docke
 No vagrant boxes, so you can use the following template for more info on the init
 scripts and envs.
 
+```
 - Node 1 -
 hostname: master
 os: CentOS 9 Stream
@@ -23,4 +24,4 @@ Init_script: ./client-debian-init.sh
 
 Helper scripts:
 create-data-view-api.sh - New data view, sample data view for metricbeat.
-
+```
