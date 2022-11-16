@@ -1,2 +1,4 @@
 # devops-playground
-Playground repo for DevOps course of Dimitar Zahariev
+A collection of handy scripts and cheatsheets.
+
+## Content
