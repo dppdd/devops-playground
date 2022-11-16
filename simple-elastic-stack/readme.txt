@@ -17,4 +17,3 @@ client2:
 os: ubuntu
 IP: $
 Init_script: ./client-debian-init.sh
-

@@ -1,7 +1,8 @@
 Vagrant.configure("2") do |config|
 
-    config.ssh.username = "vagrant"
-    config.ssh.password = "vagrant"
+    # following auth used due to a OSX bug
+    # config.ssh.username = "vagrant"
+    # config.ssh.password = "vagrant"
 
     config.vm.define "docker1" do |docker1|
         docker1.vm.box="shekeriev/centos-stream-9"
@@ -38,7 +39,5 @@ Vagrant.configure("2") do |config|
             vb.customize ["modifyvm", :id, "--memory", "1536"]
         end
     end
-
-    # TODO Research for a cleanup process on vagrant destroy. Delete init.log & worker-token.temp
 
 end
