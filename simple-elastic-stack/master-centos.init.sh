@@ -5,18 +5,18 @@
 # Install: Elastic Search, Logstash, Kibana : 8.5.0
 # Print out the Private key and SSH string.
 
-echo_message() {
+echo_() {
     terminalColorWarning='\033[1;34m'
     terminalColorClear='\033[0m'
     echo -e "${terminalColorWarning}$1${terminalColorClear}"
     echo
 }
 
+#TODO: Separate the version of the stack in a variable
+#TODO: Separate Java heap size in a variable
 
-echo_message " ----- SSH ----- "
 
-echo_message " Configure Ports, generate keys, restart sshd"
-
+echo_ " ----- SSH ----- "
 yum install -y policycoreutils-python-utils-3.3-5.el9
 firewall-cmd --add-port=9292/tcp --permanent
 firewall-cmd --reload
@@ -24,32 +24,25 @@ semanage port -a -t ssh_port_t -p tcp 9292
 semanage port -m -t ssh_port_t -p tcp 9292
 
 echo "Port 9292" >> /etc/ssh/sshd_config
-#echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
+#echo "PasswordAuthentication no" >> /etc/ssh/sshd_config #!
 
 ssh-keygen -f ~/.ssh/ssh_key_cent_root -q -N ""
 cat ~/.ssh/ssh_key_cent_root.pub >> ~/.ssh/authorized_keys
 
 systemctl restart sshd
 
-echo_message " ----- SSH Done ----- "
-
-
-echo_message " ----- Firewall ----- "
-
+echo_ " ----- Firewall ----- "
 firewall-cmd --add-port 9200/tcp --permanent
 firewall-cmd --add-port 5601/tcp --permanent
 firewall-cmd --add-port 5044/tcp --permanent
 sudo firewall-cmd --reload
 
-echo_message " ----- Firewall Done ----- "
 
-
-echo_message " ----- Applications ----- "
-# Install: Elastic Search, Logstash, Kibana
+echo_ " ----- Applications ----- "
 dnf install -y jq tree git wget
 
-echo_message " Install Elastic Search"
 
+echo_ " Install Elastic Search"
 wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.5.0-x86_64.rpm
 sudo rpm -Uvh elasticsearch-*.rpm
 rm -f elasticsearch-*.rpm
@@ -68,13 +61,13 @@ sed -i 's/#network.host: 192.168.0.1/network.host: ["localhost", "${my_ip}"]/' $
 sed -i 's/#http.port: 9200/http.port: 9200/' $es_main_config
 sed -i 's/#cluster.name: my-application/cluster.name: mycluster/' $es_main_config
 sed -i 's/#node.name: node-1/node.name: master/' $es_main_config
-sed  -i 's/cluster.initial_master_nodes/#cluster.initial_master_nodes/' $es_main_config
+sed -i 's/cluster.initial_master_nodes/#cluster.initial_master_nodes/' $es_main_config
 echo 'cluster.initial_master_nodes: ["master"]' >> $es_main_config
 
-# Turn Off the Security Mode of Elasticsearch: (Not recommended, just for these tests)
+# Turn Off the Security Mode of Elasticsearch
 
 
-# Start the service:
+echo_ " Start Elastic Search"
 systemctl daemon-reload
 systemctl enable elasticsearch
 systemctl start elasticsearch
@@ -84,14 +77,13 @@ systemctl restart elasticsearch
 yes | /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic --force --auto -s > /root/es_pass_izx526487
 
 
-echo_message " Install Logstash"
-
+echo_ " Install Logstash"
 wget https://artifacts.elastic.co/downloads/logstash/logstash-8.5.0-x86_64.rpm
 sudo rpm -Uvh logstash-*.rpm
 rm -f logstash-*.rpm
 
-# Test with
-#  /usr/share/logstash/bin/logstash -e 'input { stdin { } } output { stdout {} }'
+# Test:
+# /usr/share/logstash/bin/logstash -e 'input { stdin { } } output { stdout {} }'
 # You can change java heap size in /etc/logstash/jvm.options
 
 # Configure beats pipeline
@@ -110,11 +102,12 @@ output {
 }
 EOF
 
+echo_ " Start Logstash"
 systemctl start logstash
 systemctl status logstash
 
 
-echo_message " Install Kibana"
+echo_ " Install Kibana"
 wget https://artifacts.elastic.co/downloads/kibana/kibana-8.5.0-x86_64.rpm
 rpm -Uvh kibana-*.rpm
 rm -f kibana-*.rpm
@@ -128,6 +121,7 @@ sed -i "s/#server.host: \"localhost\"/server.host: \"${my_ip}\"/" $ki_conf
 sed -i 's/#server.name: "your-hostname"/server.name: "master"/' $ki_conf
 sed -i 's/#elasticsearch.hosts/elasticsearch.hosts/' $ki_conf
 
+echo_ " Start Kibana"
 systemctl daemon-reload
 systemctl enable kibana
 systemctl start kibana

@@ -5,6 +5,6 @@ curl -X POST "${my_ip}:5601/api/data_views/data_view" -H 'kbn-xsrf: true' -H 'Co
 {
   "data_view": {
      "title": "metricbeat-8.5.0-*",
-     "name": "My MetricBeat view"
+     "name": "MetricBeat"
   }
 }'
