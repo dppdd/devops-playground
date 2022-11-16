@@ -1,7 +1,8 @@
 Vagrant.configure("2") do |config|
 
-    config.ssh.username = "vagrant"
-    config.ssh.password = "vagrant"
+    # auth used due to osx bug
+    # config.ssh.username = "vagrant"
+    # config.ssh.password = "vagrant"
 
     config.vm.define "jenkins" do |jenkins|
         jenkins.vm.box="shekeriev/centos-stream-9"

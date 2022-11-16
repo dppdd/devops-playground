@@ -1,7 +1,6 @@
+Manual steps inside jenkins here:
 1. Install the recommended plugins
-
 2. Create User
-
 3. Setup Matrix authentication: 
 Manage Jenkins > Configure Global Security 
 > Authorization > Matrix-based > Add User 
@@ -35,6 +34,3 @@ without default values, as follows:
 6. Build now the PL-Master
 7. Open http://192.168.99.101:9090/
 8. or curl http://192.168.99.101:9090/
-
-Regards,
-Dimitar
