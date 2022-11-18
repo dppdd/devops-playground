@@ -1,0 +1,1763 @@
+*Index*
+
+--- Essential Commands
+*** links [hard, soft]
+*** Permissions & ownerships
+*** SUID, SGID, and Sticky Bit
+*** Search for files
+*** Editors
+*** VIM & SED & Examples
+*** Regex
+*** Archive Compress Backup
+*** Sync
+*** Redirecting Output
+*** Archives and Backups (not sure if this is correct place, check)
+
+--- Operation of running systems
+*** Cron Tab
+*** Synchronize time
+*** Startup processes and services
+** systemctl
+** Verify Integrity of resources
+*** Processes
+** Signals
+** journalctl
+*** SELinux/AppArmor
+*** Kernel
+
+--- User and Group Management
+*** Users
+** Limits
+*** Groups
+*** System-wide envrinment profiles
+*** Template user env
+*** PAM
+
+--- NETWORKING
+
+--- Service Configuration
+*** Start network service on boot
+*** Routes
+*** Filtering, firewalls
+*** Statically routing IP traffic
+*** Bind as a caching DNS service
+*** Maintain a DNS zone
+*** Email Aliases
+*** SSH servers and clients
+*** Restrict Access to the HTTP proxy server
+*** HTTPD Apache
+** Logging HTTPD
+** Restrict Access to a web page
+*** Database server
+*** Containers
+*** Virtualization
+
+
+--- Storage Management
+*** Swap
+*** Create and configure FS
+*** Mount FS on boot
+*** Manage & Configure LVM storage
+*** Encrypted storage
+*** RAID
+*** Create, manage and diagnose advanced file system permissions
+** ACL
+*** Setup user and group disk quotas for FS
+*** Imaging (not sure if this is the correct place, check)
+
+--- Things to research, hacks
+
+*End Index*
+
+
+--- Essential Commands
+
+apropos $word # Look for specific word in man pages. 
+sudo mandb    # If no apropos
+
+stat $file    # Obtain stats
+
+
+
+*** links [hard, soft]
+
+
+ln file-origin file-link_target   # hard link
+
+`
+file1 -> Inode1 > content ||| file2 -> Inode1 > content
+#  If we remove file1, file2 remain.
+#  Hard link could be created on same file system only. Permissions - Important.
+`
+
+
+ln -s file-origin file-link_target   # soft link
+`l`rwxrwxrwx   # link.
+
+
+
+*** Permissions & ownerships:
+
+r # read    # 4
+w # write   # 2
+x # execute # 1
+- # no permission # 0
+
+chmod # permissions
+chown # ownerships
+
+
+groupadd # create new group
+chgrp    # change group of a file
+
+
+* Permission bits:
+
+rwx   rwx    r-x
+Owner Group  Others
+u     g      o
+
+`
+Read Sequence: The permissions are read in sequence starting from left. 
+So: If the owner permission fits, the sequence does not continue to the group permissions.
+`
+
+Binary:
+000 # 0
+001 # 1
+010 # 2
+011 # 3
+100 # 4
+101 # 5
+110 # 6
+111 # 7
+
+rw- | r-- | ---
+110 | 100 | 000
+6   | 4   | 0
+
+Octal table:
+r # 4
+w # 2
+x # 1
+
+rw- | r-- | ---
+4+2 | 4   | 0
+6   | 4   | 0
+
+
+* Change permissions
+chmod $file
+- simple syntax:
+u+ # user u+w / u+wr / u+rwx
+g+ # group
+o+ # others 
+-  # minus works
+=  # exact permissions
+u=r, g=rwx # multiple sets works
+
+`
+chmod g=rwx $filename
+chmod u+x $filename
+`
+
+
+*** SUID, SGID, and Sticky Bit
+
+SETUID = 4  # set user id
+SETGID = 2  # set group id
+STICKY = 1
+
+
+SUID
+--
+chmod u+s executable
+chmod u-s executable #revoke SUID
+chmod 4XXX executable
+
+-rwSrw-r--  1 demiro demiro 0 Jun  9 17:06 suidfile
+`The capital S - setuid is set, but the owner does not have execute permissions. u+x required now or chmod 47** suidfile`
+
+
+
+SGID
+--
+chmod g+s executable
+chmod 2XXX executable
+
+-rw-rwSr-- 1 demiro demiro 0 Jun  9 17:09 sgidfile
+`The capital S again.`
+
+
+`
+GUID Useful for directory as all files inside will inherit this bit.
+
+GUID is similar to SUID. In the SUID, the executable in question runs with the privileges of the owner of the file. In the GUID, if it’s an executable, then it runs with the permissions of the group. 
+If it’s a directory, it results in all new files and directories inside to belong to the group.
+`
+
+
+Sticky Bit
+--
+chmod +t $file_dir
+
+chmod 1XXX executable
+chmod 1777 stickydir/
+drwxrwxrwt 2 demiro demiro 4096 Jun  9 17:13 stickydir/
+`Capital T - owner does not have execute permissions, e.g. chmod 1666`
+
+
+`
+Usually set for didrectories, shared between users. 
+Allow user that owns the file inside that dir to remove the file, but no matter the permissions of the dir, only that user can remove. 
+Meaning simply You cannot do that.
+
+Sticky bits are typically used when using a shared folder.
+No one can delete another’s file within the shared folder even if the permission is 777.
+`
+
+
+
+*** Search for files
+
+find
+--
+
+find . -size +10M #  c bytes,k,M,G. + greater than, - less than
+find . -mmin -5 # modified minute, N exact min ago, -N in the last N min, +N - all before N min
+find . -mtime   # modified hourс.
+
+# changetime - when metadata for the file was changed. 
+
+-size # c bytes,k,M,G. + greater than, - less than
+-o # or
+-not
+\! - escape.
+
+#permission checks:
+-perm 664  # exact permissions, -666 at least this, /664 any of these
+-perm u=rw,g=rw,o=r  # 664 exact, -u= at least, /u=rw,g=rw,o=r any
+
+find \! -perm -o=r #files Others cannot read
+find -perm u=r, g=r, o=r
+
+# to get all the suids
+find / -perm -4000 2> /dev/null
+# to get all the guids
+find / -perm -2000 2> /dev/null
+# find all sticky bits
+find / -perm -1000 2> /dev/null
+
+SETUID = 4
+SETGID = 2
+STICKY = 1
+
+
+*** Editors and pagers
+ 
+
+SED
+--
+sed -i '$regex' file_name  # -i in place edit of the file.
+sed -i '500,2000s/enabled/disabled/g' - range of lines
+
+cut -d ' ' -f 1 file_name  # -d delimeter, -f field
+
+diff
+1c1 - 1 line from file 1 is changed.
+-c #context 
+-y #sdiff
+
+less - / # search: n next, N prev, -i insens
+more - spacebar, q
+
+vim - /search_text\c - case ins., yy-copy the line, p-paste, 
+grep - -w match whole word only(useful for regex search), -i ignore case, -r, -v invert match, -o k ,y matching
+
+sudo systemctl status sshd.service | grep PID | grep -oP '\d+(\.\d+)?' # extract the pid of sshd
+
+
+*** VIM & SED & Examples
+
+/\c$search_phrase # case-insensitive
+Alt-j to move the current line down,  Alt-k to move the current line up
+:m+1 - move the current line one line below
+:m-2 - move the current line one line above
+:m 0	move current line to before first line
+:m $	move current line to after last line
+
+
+
+*** Regex
+
+^ # start with, '^startString'
+$ # end with, 'startString$'
+. # any character, one char.
+* # previous element can exist 0 or more - .* - '/.*/' - all between slashes
++ # 1 or more # basic regex.
+### basic regex - ?, +, {, |, (, ), use extended for without escape char(\)
+
+E:
+$prev_elem{N,} - N times $prev_elem at least
+$prev_elem{N} - N many times exactly
+$prev_elem?- Optional, 0 or more times - 'disabled?'
+$prev_elem{N1,N2} - range
+| - or
+[] - range or sets of chars. set - [abs123]
+[^] # http[^s], [^a-z]
+
+\w - any word character
+
+Subexpressions
+(expr)
+
+
+
+*** Archive Compress Backup
+
+tar 
+-t --list
+-f --file # -f $filename.tar
+-c --create
+-g --gzip # compress with gzip
+-j --bzip2 # compress with bzip2
+-a --autocompress 
+-r --append
+-x --extract
+-xf --extract --file
+
+*** Sync
+
+rsync -a Pictures/ demiro@1.1.1.1:/home/demiro/pic/
+rsync -a demiro@1.1.1.1:/home/demiro/pic/ Pictures/
+rsync -a Pictures/ /Backups/Pictures/
+
+Imaging:
+--
+
+create image:
+sudo dd if=/dev/vda of=diskimage.raw bs=1M status=progress
+
+deploy image:
+sudo dd if=diskimage.raw of=/dev/vda bs=1M status=progress
+
+
+*** Redirecting Output
+
+>  #redirect all, overwrite existing
+>> #append
+1> #stoud
+2> #sterr
+<  #stdin
+
+grep -r '^The' /etc/ 1>output.txt 2>errors.txt
+grep -r '^The' /etc/ 1>>output.txt 2>>errors.txt
+grep -r '^The' /etc/ 1>>all_output.txt 2>&1
+
+HEREDOC & HERESTRING
+--
+$ sort << EOF
+>4
+>2
+>5
+>EOF
+
+$ bc <<< 1+2+3+4
+
+grep -v '^#' /etc/login.defs | sort | column -t
+
+
+*** Archives and Backups
+
+1. archive
+2. compress
+3. backup
+
+1. archive
+tar 
+--list -t 
+--file -f $ -f $filename.tar
+--create -c
+--append -r
+--extract -x
+# tar --create --file arch.tar /home/demiro/pic
+
+2. compress
+
+gzip file1 -> file1.gz     # gzip --decompress file1.gz
+gunzip file1.gz -> file1
+
+bzip2 file2 -> file2.bz2   #bzip2 --decompress file2.bz2
+bunzip file2.xz2 -> file2
+
+xc file3 -> file3.xz       # xz --decompress file3.xz
+unxz file3.xz
+
+## --keep
+
+zip arch file1 = zip arch.zip file1
+zip -r
+
+tar zcf arch.gz file1 # --create --gzip --file
+tar zjf arch.gz file1 # --create --bzip2 --file
+tar zJf arch.gz file1 # --create --xz --file
+### -a --autocompress 
+
+tar xf arch.tar.gz file1   # --extract --file
+
+Sync
+
+rsync -a Pictures/ demiro@1.1.1.1:/home/demiro/pic/
+rsync -a demiro@1.1.1.1:/home/demiro/pic/ Pictures/
+rsync -a Pictures/ /Backups/Pictures/
+
+
+--- Operation of running systems
+
+
+systemctl reboot/poweroff --force
+
+shutdown 02:00/+15/    # shutdown at/after
+shutdown -r 02:00/+15/ # reboot at/after
+shutdown -r 02:00/+15/ 'Scheduled restart to do offline-backup of our database' # with msg
+
+
+Booting
+sudo
+	systemctl get-default
+			  set-default multi.user.target # boot normally, skipping graphical interface.
+			  isolate graphical.target # switch to graphical target
+			  		  emergency.target # the root FS is mounted in read-only
+			  		  rescue.target    # root shell, only essential programs running
+
+
+Bootloaders
+GRUB
+we can fix grub with any external media as usb, dvd.. It will try to find Linux installation and mount it to /mnt/sysroot. Then in Shell
+
+chroot /mnt/sysroot
+
+grub2-mkconfig -o /boot/grub2/grub.cfg  	  	  # BIOS Generating configuration file.
+				  /boot/efi/EFI/centos/grub.cfg   # EFI Generating configuration file.
+
+
+lsblk # list blocks, returns phisycal & virtual disks
+
+grub2-install /dev/sda  # BIOS set the disk to boot, check for /boot mountpoint. 
+
+dnf resinstall grub2-efi grub2-efi-modules shim # Place grub conf files for EFI
+
+
+>> /etc/default/grub
+GRUB_TIMEOUT=5   # the displayed menu
+CDMLINE_LINUX="" # initial command, run after boot(?)
+## Then we should regenerate the grub config file:
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+
+
+Scripting
+u+x || +x # user can execute || everybody can exec
+
+help # bash builtins
+
+if test -f /tmp/archive.tar.gz; then
+	mv /tmp/archive.tar.gz /tmp/archive.tar.gz.OLD
+	tar acf /tmp/archive.tar.gz /etc/dnf/
+else
+	tar arf /tmp/archive.tar.gz /etc/dnf/
+fi
+
+# exit codes - 0 success, !0 error
+
+#cheatsheet here
+cat /etc/cron.hourly/0aanacron
+https://devhints.io/bash
+
+
+
+*** Synchronize time
+
+
+chronyd
+
+systemctl status chronyd.service # make sure is currently running
+
+timedatectl # info about the time.
+
+System without chronyd:
+
+sudo timedatectl set-timezone Americe/New_Yourk # make sure the timezone is set correctly. 
+sudo dnf install chrony # install it
+systemctl start chronyd.service # start it
+systemctl enable chronyd.service # enable it, for auto start with boot
+timedatectl # again. If sync no runnig:
+systemctl set-ntp true # run it 
+
+
+
+*** Cron Tab
+
+cat /etc/crontab
+
+sudo cat /var/spool/cron/crontabs/root
+
+minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').
+
+* = all possible values
+, = match multiple vas(i.e. 15,45)
+- = range (2-4)
+/ = steps (*/4)
+
+0-8/4 - run every 4 hours from 0 to 8am
+
+35 6 * * * command => run every day at 6:35AM
+0 3 * * 7 => run every sunday at 3:00 AM
+0 3 15 * * => run every 15th at 3:00 AM
+0 3 * * * => run every day at 3:00 AM
+
+crontabl -l 
+crontab -l -u $username
+crontab -r = remove crontab
+crontab -e = edit crontab
+
+daily = /etc/cron.daily
+hourly = /etc/cron.hourly
+monthly = /etc/cron.monthly
+weekly = /etc/cron.weekly
+sudo cp shellscript /etc/cron.daily
+
+
+# Dont really care at what time the job will run - anacron
+sudo vim /etc/anacrontab
+# period in days #delay in minutes #job_identifier #command
+3 10 test_job /usr/bin/touch /path/to/file
+7
+@weekly
+@monthly
+
+anacron -T # test the syntax
+sudo anacron -n -f # execute anacron job now
+
+
+# at $command
+at 15:00 
+ctrl + d to save
+at 'August 20 2022'
+at '2:30 August 20 2022'
+at 'now + 30 minutes'
+at 'now + 3 hours'
+at 'now + 3 days'
+at 'now + 3 months'
+
+atq # list the queue
+atq -c 20 # check what the job contains
+
+sudo grep atd /var/log/cron
+
+### Verifying the completing of a job
+
+* * * * * echo "Testing crontab"
+* * * * * echo "Testing crontab Again"
+
+sudo cat /var/log/cron
+sudo cat /var/log/cron.log
+ubuntu - /var/log/syslog
+
+MAILTO=root
+
+| systemd-cat --identifier=test_job # set a custom logging. The log is journalcontrol(journalctl) or /var/log/messages
+
+
+
+
+
+*** Startup processes and services
+
+init - initialization system
+systemd.service
+#TODO man systemd.service
+
+** systemctl
+
+systemctl cat sshd.service
+
+sudo systemctl edit --full sshd.service
+
+sudo systemctl status sshd.service
+
+sudo systemctl status sshd.service
+			   stop
+			   start
+			   restart
+			   reload
+			   reload-on-restart
+			   is-enabled
+			   enable #perm
+			   disable #perm
+			   enable --now # enable and starts now
+			   disable --now # ^^^
+
+
+systemctl list-dependencies
+
+Service 1 can start service 2, etc. 
+sudo systemctl mask atd.service  # mask the service and it cannot be started and so on.
+			   unmask
+
+
+sudo systemctl list-units --type service --all
+
+
+systemctl daemon-reload # Warning: The unit file, source configuration file or drop-ins of httpd.service changed on disk. Run 'systemctl daemon-reload' to reload units.
+
+sudo systemctl status sshd.service | grep PID | grep -oP '\d+(\.\d+)?' # extract the pid of sshd
+
+systemctl get-default # get default environment(graphical, etc)
+
+
+
+CentOS || Fedora Initial SSH configs
+# Change port, disallow pass auth, allow SSH key only.
+
+# Change port:
+/etc/ssh/sshd_config
+9292
+yum install policycoreutils
+
+
+- SSH port:
+[root@localhost ~]# grep 'Port ' /etc/ssh/sshd_config
+Port 35359
+[root@localhost ~]# firewall-cmd --add-port=35359/tcp --permanent
+success
+[root@localhost ~]# ss -tlpn | grep 35359
+LISTEN 0      128          0.0.0.0:35359      0.0.0.0:*    users:(("sshd",pid=641,fd=3))
+LISTEN 0      128             [::]:35359         [::]:*    users:(("sshd",pid=641,fd=4))
+
+- Disabled Password auth.
+25  cd ~/.ssh/authorized_keys
+29  ssh-keygen
+32  cat id_rsa.pub > authorized_keys
+34  ll -d ../.ssh/
+
+
+** Verify Integrity of resources
+
+lscpu
+lspci
+
+sudo xfs_repair -v # repait xfs FS
+sudo fsck.ext4 -v -f -p /dev/sda # -f forces a check, -p fix simple questions automatically. 
+
+systemctl list-dependencies
+
+sudo pkill $chronyd 
+
+
+
+*** Processes
+ps u
+ps -u -U demiro
+pgrep -a 
+
+#processes niceness. from -20 to 19. lower the number - higher priority. >0 could be set by root.
+nice -n 11 bash #bash is the name of the process that we start
+sudo nice -n -12 bash
+renice 7 $PID # you can renice once to lower.
+ps -l
+ps -lax
+f - forest
+
+** Signals
+kill -L # list of signals
+1) SIGHUP $ reboot
+-9 #default kill, gracefully shutdown
+pkill # kill by name --> pkill KILL bash
+
+ctrl + z # froze program
+fg # bring to foreground
+
+command & # background a program
+jobs # check what is running in background
+fg $job_number
+bg $job_number # resume command
+
+
+#what files and processes are running
+lsof -p PID # all files and directories open by that process
+lsof /var/log/messages # check what processes use the given dir
+
+
+TODO:
+* /var/log/secure - ? on ubuntu
+* /var/log/messages - ? on ubuntu
+
+
+
+** journalctl
+
+journalctl /bin/sudo
+journalctl -u sshd.service #display log generate by this unit
+-e # end
+-f 
+-p $info / warning / err / crit
+-g # grep # '^b'
+-S 02:00 # since 2AM, # supports dates, should be in ''
+-U # until
+-b 0 # logs from the current boot. -1 for the previous boot
+mkdir /var/log/journal
+
+last #
+lastlog
+
+
+
+
+
+
+*** Kernel
+
+sysctl -a #.net = networking, vm = virtual memory
+sysctl -w $param=1/0 -> enable/disable non-persistant(not kept after reboot)
+
+
+# persistent change
+man sysctl.d # check synopsis /etc/sysctl.d/*.conf
+create a file in /etc/sysctl.d/*.conf, name it descriptive 
+sudo sysctl -p /etc/sysctl.d/*.conf # update the param before the next boot
+
+
+
+*** SELinux/AppArmor
+
+ls -Z # SELinux labels
+# user:role:type:level
+
+SELinux User  |   Roles
+type # protective software jail, a restriction bubble
+
+ps axZ # display security labels, check for -D -. #domain. This domain could be accessed only by the files that have the required label.
+ls -Z /usr/sbin/sshd
+
+
+sudo semanage login -l
+sudo semanage user -l
+getenforce # Enforcing, Permissive, Disabled.
+setenforce # Set custom enforce temp.
+
+sudo chcon -t  httpd_sys_content_t /var/index.html #-R for dir
+
+INstall:
+yum provides /usr/sbin/semanage
+--> Choose version and copy, e.g. yum install policycoreutils-python-utils-3.3-5.el9
+
+
+
+
+
+--- User and Group Management
+
+
+*** Users
+# create, delete, modify
+
+/etc/skel , /bin/bash # copied to /home/$username
+
+
+useradd
+userdel
+usermod
+
+passwd
+chage
+
+
+useradd -D / --defaults # get dafults. Defined in 
+/etc/login.defs
+--home-dir/-d $/path/to/dir # set custom home dir
+--shell/-s /bin/othershell # set custom shell for the user
+--uid/-u $ID # set custom ID for user & group
+ls -ln /path/ #-n for numeric IDs of user & group
+
+id / whoami
+
+sudo useradd --system $sysacc_username # Create system account. The system accounts are intended to programs. User accounts for people. E.g. Daemons uses sys accounts. No home dirs are created for them.
+
+sudo passwd $username #change pass
+/etc/passwd
+
+
+sudo userdel $username # remove user account only. The group `could` be deleted. But /home/$username remains.
+sudo userdel --remove/-r $username # remove the user dir, too.
+
+sudo groupdel $username
+ 
+sudo usermod --home/-d /path/to/new/dir --move-home/-m $username
+sudo usermod --login/-l $new_username $old_username # change the username
+sudo usermod --shell/-s $/bin/newshell 
+
+sudo usermod --lock/-L/--unlock/-U # lock account. The user should be able to login via SSH
+sudo usermod --expiredate/-e 2022-12-10 $username # choose date in the past for immediate effect. YYYY-MM-DD
+sudo usermod --expiredate/-e "" $username # Empty date for removing the expire
+
+sudo chage --lastday/-d 0 $username  # immediate expire on password. chage = change age
+sudo chage --lastday/-d -1 $username # remove above
+sudo chage --maxdays/-M 30 $username # 
+sudo chage --maxdays/-M -1 $username # never expires
+sudo chage --list/l $username        # 
+
+
+** Limits:
+
+https://linoxide.com/limit-processes-user-level-linux/
+
+/etc/security/limits.conf
+
+
+
+*** Groups
+
+
+groupadd
+gpasswd
+groups
+groupmod
+groupdel
+
+
+gpasswd --add/-a $user $group # the main purpose of gpasswd is to add/remove users to groups.
+gpasswd --delete/-d $user $group 
+
+groups $user # check the groups, first: primary/login groups, then secondary/supplementary groups
+
+sudo usermod -g/--gid $group $user # change user primary group
+
+sudo groupmod --new-name/-n $new_name #rename group
+
+sudo groupdel $group # delete, see err if the group is primary for a user
+
+
+
+*** System-wide envrinment profiles
+
+printenv / env
+/etc/environment #add custom vars here 
+/etc/profile.d/lastlogin.sh  #run a command every time user logs in
+
+
+*** Template user env
+
+
+
+
+
+
+*** PAM
+(pluggable authentication module)
+
+/etc/pam.d/
+man pam.conf
+
+allow root only via SSH:
+sudo vi /etc/pam.d/sshd
+auth    required       pam_listfile.so onerr=succeed  item=user  sense=deny  file=/etc/ssh/deniedusers
+sudo vi /etc/ssh/deniedusers 
+root
+
+
+
+---
+Access to root
+sudo $cmd         				# execute as root
+sudo --login/-i   				# login as root 
+su -  / su -l  / su --login     # log in as root
+
+# allow to log in as root with pass:
+sudo passwd root  # set pass
+sudo passwd --unlock root # unlock root to set password
+sudo passwd --lock/-l root # lock acc
+
+
+
+
+
+
+--- NETWORKING
+
+Configure networking and hostname resolution statically or dynamically 
+
+ip l
+ip addresses show  # ip a
+ip route show      # ip r
+
+cat /etc/resolv.conf
+/etc/sysconfig/network-scripts/
+
+
+
+*** Routes
+
+ip route show # ip r # ip l
+cat /etc/resolv.conf # find which DNS resolver is used.
+# When the system boots, it automatically configures the resolvers using the files in:
+/etc/sysconfig/network-scripts/
+# cat the file containing your network adapter name(ip a), and check for
+BOOTPROTO=dhcp # dhcp servers asked for dynamic configurations. For static it will be 'none'.
+
+nmtui #network manager
+nmcli # network manager CLI
+sudo nmcli device reapply $enps03 # apply the changes from network manager before the next boot
+
+/etc/hosts # static name resolution
+
+
+
+*** Start network service on boot.
+
+systemctl status NetworkManager.service
+if no NM, install it
+
+dnf install NetworkManager
+systemctl enable NetworkManager.service # start on boot
+systemctl start NetworkManager.service
+
+nmcli connection show # list all connection on the system(Device column contain the names)
+nmcli connection modify $network_ad_name autoconnect yes # set on boot.
+
+ss -tunlp
+l # listening
+t #tcp
+u # udp
+p # port, use sudo
+n # numeric values
+
+older: netstat
+
+systemctl 
+
+
+
+*** Filtering, firewalls
+
+firewall-cmd --get-default-zone
+firewall-cmd --get-active-zones
+
+firewall-cmd --set-default-zone=$name_of_zone
+
+firewall-cmd --list-all
+
+firewall-cmd --info-service=$name_of_service
+
+# allow/disallow traffic to certain service
+
+sudo firewall-cmd --add-service=http 
+# or use: sudo firewall-cmd --add-port=80/tcp
+
+sudo firewall-cmd --remove-service=http 
+# or sudo firewall-cmd --remove-service=80/tcp
+
+
+# 'public' policy - deny incoming connections to all ports. 
+# we can have a policy for filtering via incoming IP:
+firewall-cmd --add-source=10.11.12.0/24 --zone=trusted # We allow everything coming from 10.11.12.0/24
+firewall-cmd --remove-source=10.11.12.0/24 --zone=trusted # Remove this filter
+
+
+# ^^^ above is temporary. To save:
+
+firewall-cmd --runtime-to-permanent
+# or firewall-cmd $--add-port=12345/tcp --permanent # keep in mind: must add temp. rule before saving these permanent
+
+
+
+*** Statically routing IP traffic
+
+Computer A        - Cumputer C -			Computer B
+10.0.0.1   - 10.0.0.100 - 192.168.0.100  -  192.168.0.1
+Network 1 - 10.0.0.0					    Network 2 - 192.168.0.0 
+
+We should connect Computer A to B. Via Computer C, which is configured. 
+So we should configure Computer A & B
+
+sudo ip route add 192.168.0.0/24 via 10.0.0.100
+
+#We should also specify the interface name to what we want to apply the route
+sudo ip route add 192.168.0.0/24 via 10.0.0.100 dev $enp0s3
+
+sudo ip a add 10.0.0.50/24 dev eth1 # # This system uses dynamic network configuration. We won't change that, but add an extra IP to eth1 interface on this system: 10.0.0.50/24.
+
+sudo ip route del 192.168.0.0/24
+
+sudo ip route add default 10.0.0.100 # GATEWAY
+# default - consult with the routing table. if no route there, send the packet to default route.
+
+# ^^^ above is temporary. To save:
+
+nmcli connection show # obtain the name first
+sudo nmcli connection modify $npm0s3 +ipv4.routes "192.168.0.0/24 10.0.0.100"
+sudo nmcli device reaply $enp0s3 # to immediately apply the above
+ip route show
+# to remove:
+sudo nmcli connection modify $npm0s3 -ipv4.routes "192.168.0.0/24 10.0.0.100" # -
+
+### ^^^ You can add the above from nmtui > Routing. The reapply
+
+
+
+--- Service Configuration
+
+*** Bind as a caching DNS service
+---
+
+sudo dnf install bind bind-utils
+sudo systemctl start named.service
+sudo systemctl enable named.service
+
+sudo firewall-cmd --add-service=dns # allow in firewall, save it permanently:
+sudo firewall-cmd --add-service=dns --permanent
+
+
+/etc/named.conf  # man named.conf
+
+ip a # obtain the inet address
+
+/etc/named.conf
+
+
+listen-on port 53 { 127.0.0.1; }; # listen for connection on the same system, but not the outside world.
+#add your local inet so bind could listen on it, too:
+listen-on port 53 { 127.0.0.1; $your_inet_ip };
+listen-on port 53 { any; }; # accept incoming connections on any network atteched to the server
+
+
+allow-query     { localhost; }; # Only programs running on this server can request DNS data from bind.
+allow-query     { localhost; 192.168.0.0/24; }; # 
+allow-query     { any; }; # any ip address
+
+
+recursion yes; # lets bind server gets data from other DNS servers if nothing is found in the cache
+
+# How bind became caching service? It is such by default.
+
+
+
+
+
+
+*** Maintain a DNS zone
+
+# zone - a zone can group a DNS records for a specific domain.
+
+Add a DNZ zone:
+# IN /etc/named.conf: 
+zone "example.com" IN {
+        type master;
+        file "example.com.zone";
+};
+
+/var/named/ # the DNS zones dir. Create example.com.zone.
+
+
+    0       ; serial # should be incremented on each change. 
+    1D      ; refresh # tell other DNS servers how long to wait before refreshing their copy
+    1H      ; retry # How long to wait before the next query if the previous has failed
+    1W      ; expire # How long to keep the dns cache
+    3H )    ; minimum # How long to cache negative responses.
+
+systemctl restart named.service
+
+Email Aliases
+---
+
+sudo dnf install postfix # install a simple email server
+systemctl start&enable postfix
+
+sendmail $user@localhost <<< "Hello, I'm just sending a test email."
+
+cat /var/spool/mail/$user
+
+/etc/aliases
+$email_acc_to_alias: $email_acc_to_receive # advertising:aaron
+sudo newaliases
+
+contact: aaron, john, jane # you can define multiple accounts to receive
+
+contact: aaron@somewebsite.com # forward to external email acc.
+
+IMAP & IMAPS service
+---
+
+sudo dnf install dovecot # a simple IMAP/S agent
+systemctl start&enable dovecot
+firewall-cmd --add-service=imap
+firewall-cmd --add-service=imaps
+firewall-cmd --runtime-to-permanent
+
+/etc/dovecot/dovecot.conf
+* protocols = imap # that will enable imap and imaps protocols
+* listen = *, :: # all ips. You cat define IP, ofc
+
+/etc/dovecot/conf.d/ # here are all configuration files
+/etc/dovecot/conf.d/10-master.conf # change the default ports(993)
+/etc/dovecot/conf.d/10-mail.conf # where the server will save the emails, Mailbox location and namespaces:
+mail_location = mbox:~/mail|:INBOX=/var/mail/%u # %u placeholder for the user. mbox => create an inbox in ~/mail
+
+/etc/dovecot/conf.d/10-ssl.conf 
+# ssl=required. change to ssl = yes if you want to have both secure and insecure connections allowed. to disable secure connection ssl = no. 
+# ssl_cert & ssl_key 
+
+
+
+
+
+
+
+*** SSH servers and clients
+---
+/etc/ssh/sshd_config # config for the server, ssh_config for the client.
+
+Port $num # 
+AddressFamily # any, inet, inet6
+ListenAddress 0.0.0.0 # listen on all addresses.
+PermitRootLogin yes # allows root to SSH. 
+X11Forwarding yes # Any user can try login SSH.
+Match user aaron
+	PasswordAuthentication yes
+#^^^ Set a rule for specific user
+
+
+
+Local SSH config files
+~/.ssh/config
+
+Host centos
+	Hostname IP.IP.IP.IP
+	Port 22
+	User $user
+
+chmod 600 config
+# now you can ssh centos
+
+ssh-keygen
+
+ssh-keyget -R IP/Hostname # Remove the known_hosts fingerprints. Or just rm/>
+
+1. ssh-keygen in ~/.ssh(700)
+2. cat id_rsa.pub >> authorized_keys
+
+
+
+*** Restrict Access to the HTTP proxy server
+---
+dnf install squid
+systemctl start&enable squid
+sudo firewall-cmd add-service=squid
+sudo firewall-cmd add-service=squid --permanent
+
+/etc/squid/squid.conf
+
+acl localnet src IP.IP.IP.IP/Bits
+acl external src IP.IP.IP.IP/Bits
+
+#deny access to youtube: create the ACL, then enable it
+acl youtube dstdomain .youtube.com  # . to include all subdomains
+http_access deny youtube # or:
+http_access allow localnet !youtube
+
+# ^^^ The order of the rules is important! It is read from the beginning to the end.
+# To apply the changes gracefully systemctl reload squid.service
+# or systemctl restart squid.service # it should take 30 seconds to complete.
+
+
+Edit the configuration of the Squid proxy daemon. Add a src type acl and name it vpn. The IP you should use in this acl is 203.0.110.5. Now add a new rule that tells the proxy server to allow access to the acl named vpn.
+acl vpn src 203.0.110.5
+
+
+
+
+
+
+
+*** HTTPD Apache
+---
+sudo dnf install httpd
+sudo firewall-cmd --add-service=http
+sudo firewall-cmd --add-service=https
+sudo firewall-cmd --runtime-to-permanent
+
+sudo dnf install mod_ssl
+
+sudo systemctl start httpd
+sudo systemctl enable httpd
+Created symlink /etc/systemd/system/multi-user.target.wants/httpd.service → /usr/lib/systemd/system/httpd.service.
+
+man httpd.conf
+
+/etc/httpd/conf/httpd.conf # main configuration file
+ServerName www.example.com:80 
+
+/etc/httpd/conf.d/two-websites.conf
+apachectl configtest
+systemctl reload httpd
+
+# for HTTPS, VT:
+
+<VirtualHost *:443>
+        ServerName example.com
+        SSLEngine on
+        SSLCertificateFile "path/to/file.cert"
+        SSLCertificateKeyFile "path/to/file.key"
+</VirtualHost>
+
+# To remove module: /etc/httpd/conf.modules.d
+/etc/httpd/conf.modules.d
+00-*
+
+
+
+** Logging HTTPD
+---
+# errors 
+# access
+# ^^^ defined in /etc/httpd/conf/httpd.conf
+
+ErrorLog "logs/error_log" # related to the main dir, ServerRoot "/etc/httpd"
+
+LogLevel warn #
+
+# Recommended to have diff log for every host
+# define it in the virtual host:
+	CustomLog /var/log/httpd/store.example.com_access.log combined
+	ErrorLog /var/log/httpd/store.example.com_error.log
+
+
+
+** Restrict Access to a web page
+---
+
+Options Indexes FollowSymLinks # Indexes: Allow index page if no index.html/etc found. 
+AllowOverride None # enable .htaccess control
+Require all granted # 
+
+<Directory "/var/www/html/admin">
+        Require all denied
+</Directory>
+
+<Directory "/var/www/html/admin">
+        Require ip 139.162.138.0/8
+</Directory>
+
+
+
+sudo htpasswd -c /etc/httpd/passwords demiro # -c for create. Ommit if you want to append. create htpass file with user/passHash
+sudo htpasswd -D /etc/httpd/passwords demiro # -D delete
+
+
+
+
+*** Database server
+---
+mariadb
+
+sudo dnf install mariadb-server
+sudo systemctl start mariadb.service
+sudo systemctl enable mariadb.service
+sudo firewall-cmd -add-service=mysql
+sudo firewall-cmd -add-service=mysql --permanent
+
+mysql -u root
+
+# Secure it
+# restrict -u root
+
+mysql_secure_installation
+
+# Configurations
+/etc/my.cnf
+/etc/my.cnf.d/mariadb-server.cnf
+bind-address=$IP # accept connections only from $IP
+
+
+
+
+
+*** Containers
+---
+Docker
+dnf install docker # for centos it install podman, fedora - moby-engine, container-selinux-2:2.181.0-2.fc36.noarch
+# container-selinux-2:2.181.0-2.fc36.noarch    containerd-1.6.6-4.fc36.x86_64    criu-3.17-4.fc36.x86_64    libbsd-0.10.0-9.fc36.x86_64    libnet-1.2-5.fc36.x86_64    moby-engine-20.10.17-3.fc36.x86_64    runc-2:1.1.1-1.fc36.x86_64
+
+/etc/containers/registries.conf
+unqualified-search-registries=["docker.io"] # replace the previous line with this.
+
+Created symlink /etc/systemd/system/multi-user.target.wants/docker.service → /usr/lib/systemd/system/docker.service.
+
+# NGINX
+docker search nginx
+docker pull nginx # docker.io/library/nginx:latest
+
+docker images 			          # list images	
+docker rmi $image_name/$image_id  # remove image
+
+docker run -d nginx   # creates and run a container. -d detach, --detach
+docker start nginx # run a created container
+
+docker ps # --all to see the history/stopped containers
+docker container list # same as docker ps
+docker rm $name/id # delete the container from docker ps --all
+# --force on rm/rmi in order to stop container before removing image/entry
+
+sudo docker rm $(sudo docker ps -a -q) --force
+
+
+
+docker run -d -p 8080:80 --name mywebserver nginx # with port mapping, someone connecting on 8080 will be redirected to 80 on container
+
+nc localhost 8080
+GET /
+
+docker container/rm/etc --help
+
+
+
+
+
+
+*** Virtualization
+---
+kvm # kernel based virtual machine
+virsh 
+
+sudo dnf install libvirt qemu-kvm
+
+# simple config, testmachine.xml
+<domain type="qemu">
+	<name>TestMachine</name>
+	<memory unit="GiB">1</memory>
+	<vcpu>1</vcpu>
+	<os>
+		<type arch='x86_64'</type>
+	</os>
+</domain>
+#missing - storage, network, etc
+
+virsh define $testmachine.xml # define the domain, then start it
+
+virsh list # active domains listed
+virsh list --all # list all domains 
+
+# reset if the machine is not responsive. destroy if cannot be shutdown
+virsh start / reboot / reset / shutdown / destroy  TestMachine 
+
+virsh undefine TestMachine # delete after power off VM # data preserved.
+virsh undefine --remove-all-storage TestMachine # delete alongside data
+# for more info virsh undefine help
+
+virsh autostart (--disable) TestMachine # It will auto start on boot
+
+virst dominfo TestMachine # all information about TestMachine
+
+virsh setvcpus TestMachine 2 --config --maximum # set the maximum CPUs and then run the same without the --maximum, then:
+virsh shutdown / destroy TestMachine
+virsh start TestMachine
+
+
+sudo virsh setmaxmem VM2 80M --config
+sudo virsh setmem VM2 80M --config
+
+
+
+
+
+
+
+
+--- Storage Management
+
+lsblk # display block and partitions
+
+fdisk --list /dev/sda # show partition on this device
+
+cfdisk # partition table - start and end of the partition.
+
+
+
+*** Swap
+---
+swapon --show
+
+mkswap $/dev/vdb3  # add parition as swap, aka format a partition as swap
+swapoff $/dev/vbd3 # remove swap partition
+
+swapon --verbose $/dev/vdb3 
+
+# Add file as swap
+dd if=/dev/zero of=/swap bs=1M count=128 status=progress # bs = block size
+chmod 600 /swap
+
+mkswap /swap
+swapon --verbose /swap
+
+swapin --show
+
+
+[bob@centos-host ~]$ sudo mkswap /dev/vdb2 # make swap
+[bob@centos-host ~]$ sudo swapon --verbose /dev/vdb2 # make it active, tell Linux to start swap
+
+
+dd if=/dev/zero of=/swapfile bs=1M count=3072 status=progress
+
+enable swap on boot: /etc/fstab
+
+
+*** Create and configure FS
+---
+
+mkfs.xfs/ext4 $/dev/sdb1 # create 
+
+sudo mkfs.xfs -b size=1024 /dev/examVG/
+
+-L "label"
+-i size=$bytes # custom inode size
+
+xfs_ # manage xfs FS, eg:
+xfs_admin -L "New Label" /dev/s$
+
+mke2fs === mkfs.ext4
+-N # number of inodes
+
+tune2fs # use for modifying ext FS
+
+tune2fs -L "SecondFS" /dev/sdb2
+
+
+*** Mount FS on boot
+---
+
+/mnt/
+
+mount /dev/vdb1 /mnt/
+touch /mnt/testfile
+
+umount /mnt/ # unmount
+
+# Add mounting point
+
+mkdir /mybackups
+
+vim /etc/fstab # Columns:
+Block File   
+Mount Point(dir where we want to mount to)   
+FS Type   
+Mounting Options:
+Dump(0/1) 
+On Error(0 never scan for errors, 1 scan for errors before the other ones 2 scan after the other ones) 
+/dev/vdc /test ext4 defaults 0 2 # mount on boot
+/dev/vdb none swap defaults 0 0 # configure swap on boot
+
+
+$ sudo blkid /dev/vdb1
+
+
+
+Configure systems to mount file systems on demand
+---
+
+autofs
+sudo dnf install autofs
+sudo systemctl start autofs.service
+sudo systemctl enable autofs.service
+
+dnf install nfs-utils
+systemctl start nfs-server.service
+systemctl enable nfs-server.service
+
+# 1. Tell nfs server what directories should share to the network - /etc/exports
+# 2. Mount the directory to the required route. Define config inside - /etc/auto.master
+# 3. In config(prev step) define the FS type, permissions, network access
+#
+
+
+
+1. /etc/exports 
+/etc 127.0.0.1(ro) # ro read-only
+
+systemctl reload nfs-server.service
+
+2. /etc/auto.master
+/shares/ /etc/auto.shares --timeout=400  # mount /shares/ and use auto.shares config. timeout - unmount after N time
+
+3. /etc/auto.shares
+mynetworkshare -fstype=auto,ro 127.0.0.1:/etc # 127.0.0.1 could be a remote addr, e.g. nsf1.example.com, we can ommit:
+mynetworkshare -fstype=auto :/dev/vdb2
+
+systemctl reload nfs-autofs # reload autofs deamon
+
+
+
+
+
+
+*** Manage & Configure LVM storage
+
+Local Volume Manager
+`Add storage to existing disk without reboot`
+
+dnf install lvm2 # install all tools
+
+pv - physical volume    # Represent real storage devie LVM to work with. Could be entire disk or partition.
+vg - volume group       # VG is sort of a virtual disk inside LVM.
+lv - logical volume
+pе - physical extend
+
+lvmdiskscan
+
+In this example, we have 3 disks:
+/dev/sda1 [1GB]
+/dev/sda2 [19GB] LVM physical volume
+/dev/sdb1
+/dev/sdb2
+/dev/sdb3
+/dev/sdc
+/dev/sdd
+/dev/sde
+3 disks
+4 partitions
+0 LVM physical volume whole disks
+1 LVM physical volume
+
+** Create and add PV
+
+# 1. Create LVM PV volume - pvcreate
+# 2. Create volume group and add LVM volumes to it - vgcreate.
+# 3. Check results - pvs
+# 4. Remove PV from VG - vgreduce
+# 5. Remove PV - pvremove
+
+pvcreate $/dev/sdc $/dev/sdd # create physical volumes.
+pvs # see the created PVs
+
+vgcreate $my_volume $/dev/sdc $/dev/sdd # Create VG and add disks/partitions to it. Now it'll be seen as one disk.
+vgs # check logical volume groups
+
+vgreduce $my_volume /dev/sde # remove PV from VG
+
+pvremove /dev/sde # Remove PV from LVM entirely.
+
+vgextend $volume1 $/dev/vdd
+
+
+** Create and add LV
+
+# 1. create logic volume and add it to volume group
+# 2. check carefully with vgs, lvs and lvdisplay
+# 3. resize LV - lvresize --extends / --size / resizefs
+# 4. Set FS - mkfs.cfs
+
+
+lvcreate --size $2G --name $partition1 $my_volume # create logic volume and add it to volume group
+
+vgs # check logical volume groups
+lvs # check logical volumes
+lvdisplay # Obtain all info about the LVs
+
+lvresize --extends 100%VG $volume_group/$logical_volume # resize logical volume to 100%, if no FS set as the FS will not use the new value - Add --resizefs.
+lvresize --size 2G $volume_group/$logical_volume # shrink it, , if no FS set, if FS use --resizefs.
+
+mkfs.xfs /dev/$my_volume/$partition1 # create FS on LV with default options. lvdisplay to obtain the variables. 
+
+lvresize --resizefs --size 3G $my_volume/$partition1 # use --resizefs if FS is set. 
+
+sudo lvremove /dev/$VG_name/$LV_name # remove LV
+vgremove --force $volume_name
+
+`man lvm if you forget a command`
+
+
+
+# Create a Logical Volume (LV). It should have these properties:
+# 1. The size of the LV should be 1.5 Gigabytes.
+# 2. Its name should be smalldata.
+# 3. The logical volume should be created on the volume group named volume1.
+
+sudo lvcreate --size 1.5G --name smalldata volume1 
+
+sudo lvcreate -L 100MB -n examLV examVG
+
+
+
+*** Encrypted storage
+
+cryptsetup
+
+
+cryptsetup --verify-passphrase open --type plain /dev/vde $mysecuredisk # 
+
+mkfs.xfs /dev/mapper/mysecuredisk
+mount /dev/mapper/mysecuredisk /mnt
+
+# not secure as the /dev/mapper/mysecuredisk could be read, despite the fact that /dev/vde is encrypted. So:
+
+unmount /mnt
+cryptsetup close mysecuredisk # we close the mapper device and the data is safe
+
+
+
+cryptsetup luksFormat /dev/vde # more user-friendly setup
+			luksChangeKey - change pass/key
+cryptsetup open /dev/vde mysecuredisk
+#writes a small block of data to the device, named Header.
+
+/dev/mapper/ # the mapped encrypted volumes are here, so:
+
+
+mkfs.xfs /dev/mapper/mysecuredisk # set XFS FS 
+cryptosetup close mysecuredisk
+
+** Encrypt part of the disk
+cryptsetup luksFormat /dev/vde2 # encrypt partition
+cryptsetup open /dev/vde2 mysecuredisk
+# cryptsetup --verify-passphrase open type --plan /dev/vde2 mysecure disk # the above without luksFormat
+
+
+*** RAID
+Redundant Array of Independent Disks
+
+`combine multiple storage devices in single area`
+
+
+RAID:
+levels:
+0 - Just a combination of disks. Not redundant.
+1 - Mirrorred array. Each file is written to all disks.
+5 - Minimum 3 disks. We can lose one disk. Exactly one disk could be lost.
+6 - Same as 5, but we can loose 2 disks. Minimum 4 disks required.
+10 - 1+0 - Combine level 1 and 0. 4 disks = 2 + 2, 2 total space.
+
+
+mdadm # multiple devices administration
+
+mdadm --create $/dev/md0 --level=0 --raid-devices3 $/dev/vdc $/dev/vdd $/dev/vde
+mkfs.ext4 /dev/md0
+mdadm --stop /dev/md0 # stop/deactivate array
+
+`when linux boots up it will scan for superblocks on all devices. This is information about if device belongs to a RAID array. If found, it will automatically reassemble to raid arr and map to /dev/md0, etc. If we want to avoid that we can use`
+mdadm --zero-superblock $/deb/vdc $/deb/vdd $/deb/vde # clear superblocks if you stop arr, too.
+
+
+# add spare disk to an array:
+mdadm --create /dev/md0 --level=1 --raid-devices=2 $/dev/vdc $/dev/vdd --spare-devices=1 /dev/vde # now if vdc fails, it will automatically add vde
+
+# add a disk to an array:
+mdadm --manage /dev/md0 --add /dev/vde
+
+# remove a disk to an array:
+mdadm --manage /dev/md0 --remove /dev/vde
+
+/proc/mdstat # see raid personalities(raid types), device name and the disk in the arr.
+
+
+
+
+
+*** Create, manage and diagnose advanced file system permissions
+
+
+
+** ACL
+
+`Problem: we have a file that we want to be editable only for specific user.`
+
+setfacl
+getfacl
+
+# for User
+setfacl --modify user:$username:rw $examplefile
+
+ls -l $filename   # identify ACL - if + is at the end of the permission bits
+getfacl $filename # obtain the ACLs
+
+`mask could be used if we want to limit existing permissions`
+setfacl --modify mask:r $username # set read only as mask
+
+# For Group
+setfacl --modify group:$wheel:rw examplefile
+
+# Remove permissions for specific user:
+setfacl --modify user:$username:--- $examplefile
+
+# Remove ACL
+setfacl --remove user/group:$username/$group examplefile 
+
+# Change things recursively:
+--recursive
+
+setfacl --recursive --remove user:$user $directory/
+
+
+Attributes
+chattr +a $filename  # append only -a remove 
+chattr +i           # make immutable
+
+lsattr $filename # list attributes
+
+
+*** Setup user and group disk quotas for FS
+
+dnf install quota
+
+# enable quota:
+/etc/fstab
+defaults,userquota,grpquota
+systemctl reboot
+
+# Enforce quota for ext4
+
+quotacheck --create-files --user --group /dev/vdb2
+quotaon /mnt/ # enable quota for /mnt/
+
+fallocate --length 100M $file_name # create file with exact size.
+
+
+# Edit Quota
+
+edquota --user $user
+0 - no limits
+soft limit - we are allowed to exceed the soft limit for 6 days. 6 days is the grace period. If the usage is not reduced after 6 day the user will not be able to write even 1 byte of data.
+--edit-period # modify grace period
+--group # modify quota of group.
+
+
+
+*** Imaging
+
+create image:
+sudo dd if=/dev/vda of=diskimage.raw bs=1M status=progress
+
+deploy image:
+sudo dd if=diskimage.raw of=/dev/vda bs=1M status=progress
+
+Redirecting Output
+>  #redirect all, overwrite existing
+>> #append
+1> #stoud
+2> #sterr
+<  #stdin
+
+grep -r '^The' /etc/ 1>output.txt 2>errors.txt
+grep -r '^The' /etc/ 1>>output.txt 2>>errors.txt
+grep -r '^The' /etc/ 1>>all_output.txt 2>&1
+
+HEREDOC & HERESTRING
+
+$sort << EOF
+>4
+>2
+>5
+>EOF
+
+$bc <<< 1+2+3+4
+
+grep -v '^#' /etc/login.defs | sort | column -t
